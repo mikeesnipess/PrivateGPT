@@ -8,7 +8,7 @@ from app.services.OllamaChatService import OllamaChatService
 from app.forms import UploadFileForm
 from app.enums_local import OS
 
-# Initialize the OllamaChatService once
+# Initialize OllamaChatService
 service = OllamaChatService()
 
 @app.route('/', methods=['GET', 'POST'])
@@ -16,22 +16,29 @@ service = OllamaChatService()
 def upload():
     form = UploadFileForm()
     if form.validate_on_submit():
-        file = form.file.data
+        files = request.files.getlist('file')  # Get all uploaded files
         text_vault = TextVault()
 
-        # Process the file based on its type
-        if file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            ir = ImageReader(OS.WINDOWS)  # Ensure this is set according to the current OS
-            text = ir.extract_text(file, lang='ron')
-            ir.add_text_to_vault(text)
-        elif file.filename.lower().endswith('.pdf'):
-            extracted_text = extract_text_from_pdf(file)
-            text_vault.add_text_to_vault(extracted_text)
-        elif file.filename.lower().endswith('.docx'):
-            extracted_text = get_data_from_word(file)
-            text_vault.add_text_to_vault(extracted_text)
+        for file in files:
+            if file:
+                filename = secure_filename(file.filename)
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    ir = ImageReader(OS.WINDOWS)  # Ensure OS setting is correct
+                    text = ir.extract_text(file, lang='ron')
+                    text_vault.add_text(text)
+                elif filename.lower().endswith('.pdf'):
+                    extracted_text = extract_text_from_pdf(file)
+                    text_vault.add_text(extracted_text)
+                elif filename.lower().endswith('.docx'):
+                    extracted_text = get_data_from_word(file)
+                    text_vault.add_text(extracted_text)
+                else:
+                    print(f"Unsupported file type: {filename}")
 
-        # After processing, redirect to the chat interface
+        # Save the vault content to a file
+        text_vault.save_text_to_vault(text_vault.get_all_text())
+
+        # Redirect to chat interface
         return redirect(url_for('chat'))
 
     return render_template('upload.html', form=form)
@@ -46,5 +53,6 @@ def chat():
             return redirect(url_for('upload'))
         if user_input:
             response = service.chat(user_input)
+        return render_template('chat.html', response=response)
 
     return render_template('chat.html', response=response)

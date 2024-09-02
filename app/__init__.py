@@ -5,3 +5,5 @@ app.config['SECRET_KEY'] = 'supersecretkey'
 # app.config['UPLOAD_FOLDER'] = 'static/files'
 
 from app.controllers.upload_controller import upload
+
+app.run(debug=True)

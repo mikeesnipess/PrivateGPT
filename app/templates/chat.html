@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Chat with Service</title>
+    <title>Chat cu Serviciul</title>
 </head>
 <body>
-    <h1>Chat with Ollama Service</h1>
+    <h1>Chat cu Serviciul Ollama</h1>
     <form method='POST'>
-        <label for="query">Ask a query:</label>
+        <label for="query">Pune o întrebare:</label>
         <input type="text" id="query" name="query" required>
-        <button type="submit">Submit</button>
+        <button type="submit">Trimite</button>
     </form>
 
     {% if response %}
-        <h2>Response:</h2>
+        <h2>Răspuns:</h2>
         <pre>{{ response }}</pre>
     {% endif %}
 
     <form action="{{ url_for('upload') }}" method="get">
-        <button type="submit">Upload New File</button>
+        <button type="submit">Încarcă un fișier nou</button>
     </form>
 </body>
 </html>

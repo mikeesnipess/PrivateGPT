@@ -4,9 +4,18 @@ import re
 
 class TextVault:
     def __init__(self):
-        pass
+        self.texts = []
+
+    def add_text(self, text):
+        """ Add text to the vault. """
+        self.texts.append(text)
+
+    def get_all_text(self):
+        """ Retrieve all text from the vault. """
+        return "\n".join(self.texts)
 
     def split_text_into_chunks(self, text: str, max_chunk_size: int) -> list:
+        """ Split text into chunks of a maximum size. """
         text = re.sub(r'\s+', ' ', text).strip()
         sentences = re.split(r'(?<=[.!?]) +', text)
         chunks = []
@@ -24,7 +33,8 @@ class TextVault:
 
         return chunks
 
-    def add_text_to_vault(self, extracted_text: str, vault_path: str = 'vault.txt'):
+    def save_text_to_vault(self, extracted_text: str, vault_path: str = 'vault.txt'):
+        """ Save extracted text to a file in chunks. """
         if not extracted_text:
             print("No text extracted.")
             return
@@ -32,7 +42,7 @@ class TextVault:
         try:
             max_chunk_size = 1000  # Maximum size of each chunk in characters
             chunks = self.split_text_into_chunks(extracted_text, max_chunk_size)
-            print(f"Chunks: {chunks}")  # Add this line for debugging
+            print(f"Chunks: {chunks}")  # Debugging output
 
             with open(vault_path, 'a', encoding='utf-8') as vault_file:
                 for chunk in chunks:
@@ -44,7 +54,7 @@ class TextVault:
             print(f"Error writing to vault: {e}")
 
 def get_data_from_word(file_storage):
-    # Use BytesIO to handle the FileStorage object
+    """ Extract text from a DOCX file. """
     doc_object = BytesIO(file_storage.read())
     doc_reader = Document(doc_object)
     data = ""

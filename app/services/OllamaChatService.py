@@ -16,16 +16,28 @@ class OllamaChatService:
         self.vault_content = self._load_vault_content()
         self.vault_embeddings_tensor = self._generate_vault_embeddings()
         self.conversation_history = []
-        self.system_message = ("Ești un asistent util care este expert în extragerea celor mai utile "
-                               "informații dintr-un text dat. De asemenea, adu informații suplimentare relevante "
-                               "pentru interogarea utilizatorului din afara contextului dat.")
+        self.system_message = (
+            "Să se răspundă în maxim 1000 caractere inclusiv și spațiile si semnele de punctuatie!\n"
+            "Ești un asistent util care este expert în extragerea celor mai utile\n"
+            "informații dintr-un text dat/documente încărcate. De asemenea, adu informații suplimentare relevante"
+            "pentru interogarea utilizatorului din afara contextului dat."
+            f"Ce e legat de persoane verifică mereu din documentele încărcate și nu creea date de la tine, bazează-te mereu pe documentele încărcate\n"
+            f"Dacă este necesar să răspunzi cu numele unei persoane, verifică OBLIGATORIU dacă este în documentele încărcate, dacă nu este în documentele încărcate nu creea unul fals\n"
+            "Răspunde în limba română. \n"
+            "RESPECTĂ MAXIMUM 1000 caractere și în caz că vrei să mai adaugi ceva, întreabă dacă persoana mai are nevoie de informație!\n"
+        )
 
     def _load_vault_content(self):
-        print(self.NEON_GREEN + "Loading vault content..." + self.RESET_COLOR)
+        print(self.NEON_GREEN + "Loading vault content from:", self.vault_file_path + self.RESET_COLOR)
         if os.path.exists(self.vault_file_path):
             with open(self.vault_file_path, "r", encoding='utf-8') as vault_file:
-                return vault_file.readlines()
-        return []
+                content = vault_file.readlines()
+                content = [line.strip() for line in content if line.strip()]
+                print(self.CYAN + "Vault content loaded:" + self.RESET_COLOR, content)
+                return content
+        else:
+            print(self.CYAN + "Vault file does not exist." + self.RESET_COLOR)
+            return []
 
     def _generate_vault_embeddings(self):
         print(self.NEON_GREEN + "Generating embeddings for the vault content..." + self.RESET_COLOR)
@@ -36,6 +48,10 @@ class OllamaChatService:
         return torch.tensor(vault_embeddings)
 
     def _get_relevant_context(self, rewritten_input, top_k=3):
+        # Reload vault content and embeddings for each query
+        self.vault_content = self._load_vault_content()
+        self.vault_embeddings_tensor = self._generate_vault_embeddings()
+
         if self.vault_embeddings_tensor.nelement() == 0:
             return []
         input_embedding = ollama.embeddings(model='mxbai-embed-large', prompt=rewritten_input)["embedding"]
@@ -48,15 +64,22 @@ class OllamaChatService:
     def _rewrite_query(self, user_input_json):
         user_input = json.loads(user_input_json)["Query"]
         context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in self.conversation_history[-2:]])
-        prompt = (f"Rescrie următoarea interogare integrând contextul relevant din istoricul conversației. "
-                  f"Interogarea rescrisă ar trebui să:\n\n"
-                  f"- Păstreze intenția și sensul esențial al interogării originale\n"
-                  f"- Expandeze și clarifice interogarea pentru a o face mai specifică și informativă pentru obținerea contextului relevant\n"
-                  f"- Evite introducerea de noi subiecte sau întrebări care se abate de la interogarea originală\n"
-                  f"- NU RĂSPUNDE NICIODATĂ la interogarea originală, ci concentrează-te pe reformularea și extinderea acesteia într-o nouă interogare\n\n"
-                  f"Istoric conversație:\n{context}\n\n"
-                  f"Interogare originală: [{user_input}]\n\n"
-                  f"Interogare rescrisă:")
+        prompt = (
+            f"Rescrie următoarea interogare integrând contextul relevant din istoricul conversației. "
+            f"Interogarea rescrisă ar trebui să:\n\n"
+            f"- Păstreze intenția și sensul esențial al interogării originale\n"
+            f"- Expandeze și clarifice interogarea pentru a o face mai specifică și informativă pentru obținerea contextului relevant\n"
+            f"- Evite introducerea de noi subiecte sau întrebări care se abate de la interogarea originală\n"
+            f"- Deribă de la interogarea originală, dar concentrează-te mai mult pe reformularea și extinderea acesteia într-o nouă interogare\n\n"
+            f"Raspunde mereu în limba română\n"
+            f"Ce e legat de persoane verifică mereu din documentele încărcate și nu creea date de la tine, bazează-te mereu pe documentele încărcate\n"
+            f"Dacă este necesar să răspunzi cu numele unei persoane, verifică OBLIGATORIU dacă este în documentele încărcate, dacă nu este în documentele încărcate nu creea unul fals\n"
+            f"MAXIM 1000 de caractere\n"
+            f"Istoric conversație:\n{context}\n\n"
+            f"Interogare originală: [{user_input}]\n\n"
+            f"Interogare rescrisă (în română):"
+        )
+
         response = ollama.chat(
             model=self.model,
             messages=[{"role": "system", "content": prompt}]
@@ -95,6 +118,7 @@ class OllamaChatService:
 
         messages = [
             {"role": "system", "content": self.system_message},
+            {"role": "user", "content": user_input + " (Te rog răspunde în română.)"},
             *self.conversation_history
         ]
 
@@ -109,4 +133,3 @@ class OllamaChatService:
         self.conversation_history.append({"role": "assistant", "content": assistant_content})
 
         return assistant_content
-
